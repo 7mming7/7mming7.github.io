@@ -33,11 +33,11 @@ kramdown:
 ####################################
 #
 owner:
-  name: zhujiajun
+  name: shuiqing301
   avatar: avatar.jpg
   job: "Java & Scala Developer"
-  bio: "A backend developer who loves design awesome things. Working for Dianping at in Shanghai, China."
-  email: zhujiajun.me@gmail.com
+  bio: "A backend developer who loves design awesome things. Working for Kyligence at in Shanghai, China."
+  email: shuiqing301@gmail.com
   disqus-shortname: #username
   twitter:  #username
   facebook: #username

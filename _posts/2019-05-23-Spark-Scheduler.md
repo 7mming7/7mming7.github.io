@@ -1,6 +1,6 @@
 Spark的任务调度就是如何组织任务去处理RDD中每个分区的数据，根据RDD的依赖关系构建DAG，基于DAG划分Stage，将每个Stage中的任务发到指定节点运行。基于Spark的任务调度原理，我们可以合理规划资源利用，做到尽可能用最少的资源高效地完成任务计算。
 
-#### 分布式运行框架
+### 分布式运行框架
 Spark可以部署在多种资源管理平台，例如Yarn、Mesos等，Spark本身也实现了一个简易的资源管理机制，称之为Standalone模式。由于工作中接触较多的是Saprk on Yarn，不做特别说明，以下所述均表示Spark on Yarn。Spark部署在Yarn上有两种运行模式，分别为client和cluster模式，它们的区别仅仅在于Spark Driver是运行在Client端还是ApplicationMater端。如下图所示为Spark部署在Yarn上，以cluster模式运行的分布式计算框架。
 ![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20190523/schedule1.jpg?raw=true)
 其中蓝色部分是Spark里的概念，包括Client、ApplicationMaster、Driver和Executor，其中Client和ApplicationMaster主要是负责与Yarn进行交互；Driver作为Spark应用程序的总控，负责分发任务以及监控任务运行状态；Executor负责执行任务，并上报状态信息给Driver，从逻辑上来看Executor是进程，运行在其中的任务是线程，所以说Spark的任务是线程级别的。通过下面的时序图可以更清晰地理解一个Spark应用程序从提交到运行的完整流程。
@@ -17,7 +17,7 @@ Driver线程主要是初始化SparkContext对象，准备运行所需的上下�
 
 从上述时序图可知，Client只管提交Application并监控Application的状态。对于Spark的任务调度主要是集中在两个方面: 资源申请和任务分发，其主要是通过ApplicationMaster、Driver以及Executor之间来完成，下面详细剖析Spark任务调度每个细节。
 
-#### Spark任务调度总览
+### Spark任务调度总览
 当Driver起来后，Driver则会根据用户程序逻辑准备任务，并根据Executor资源情况逐步分发任务。在详细阐述任务调度前，首先说明下Spark里的几个概念。一个Spark应用程序包括Job、Stage以及Task三个概念：
 * Job是以Action方法为界，遇到一个Action方法则触发一个Job；
 * Stage是Job的子集，以RDD宽依赖(即Shuffle)为界，遇到Shuffle做一次划分；
@@ -30,7 +30,7 @@ Spark RDD通过其Transactions操作，形成了RDD血缘关系图，即DAG，�
 
 Driver初始化SparkContext过程中，会分别初始化DAGScheduler TaskScheduler SchedulerBackend以及HeartbeatReceiver。SchedulerBackend会启动一个RPC服务与外界打交道，SchedulerBackend通过ApplicationMaster申请资源，并不断从TaskScheduler中拿到合适的Task分发到Executor执行。HeartbeatReceiver也会启动RPC服务负责接收Executor的心跳信息，监控Executor的存活状况，并通知到TaskScheduler。下面着重剖析DAGScheduler负责的Stage调度以及TaskScheduler负责的Task调度。
 
-#### Stage级的调度
+### Stage级的调度
 Spark的任务调度是从DAG切割开始，主要是由DAGScheduler来完成。当遇到一个Action操作后就会触发一个Job的计算，并交给DAGScheduler来提交，下图是涉及到Job提交的相关方法调用流程图。
 ![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20190523/schedule5.jpg?raw=true)
 Job由最终的RDD和Action方法封装而成，SparkContext将Job交给DAGScheduler提交，它会根据RDD的血缘关系构成的DAG进行切分，将一个Job划分为若干Stages，具体划分策略是，由最终的RDD不断通过依赖回溯判断父依赖是否是款依赖，即以Shuffle为界，划分Stage，窄依赖的RDD之间被划分到同一个Stage中，可以进行pipeline式的计算，如上图紫色流程部分。划分的Stages分两类，一类叫做ResultStage，为DAG最下游的Stage，由Action方法决定，另一类叫做ShuffleMapStage，为下游Stage准备数据，下面看一个简单的例子WordCount。
@@ -41,11 +41,11 @@ Job由**saveAsTextFile**触发，该Job由RDD-3和**saveAsTextFile**方法组成
 
 相对来说DAGScheduler做的事情较为简单，仅仅是在Stage层面上划分DAG，提交Stage并监控相关状态信息。TaskScheduler则相对较为复杂，下面详细阐述其细节。
 
-#### Task级的调度
+### Task级的调度
 Spark Task的调度是由TaskScheduler来完成，由前文可知，DAGScheduler将Stage打包到TaskSet交给TaskScheduler，TaskScheduler会将其封装为TaskSetManager加入到调度队列中，TaskSetManager负责监控管理同一个Stage中的Tasks。前面也提到，TaskScheduler初始化后会启动SchedulerBackend，它负责跟外界打交道，接收Executor的注册信息，并维护Executor的状态，所以说SchedulerBackend是管“粮食”的，同时它在启动后会定期地去“询问”TaskScheduler有没有任务要运行，也就是说，它会定期地“问”TaskScheduler“我有这么余量，你要不要啊”，TaskScheduler在SchedulerBackend“问”它的时候，会从调度队列中按照指定的调度策略选择TaskSetManager去调度运行，大致方法调用流程如下图所示。
 ![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20190523/schedule7.jpg?raw=true)
 
-#### 调度策略
+### 调度策略
 前面讲到，TaskScheduler会先把DAGScheduler给过来的TaskSet封装成TaskSetManager扔到任务队列里，然后再从任务队列里按照一定的规则把它们取出来在SchedulerBackend给过来的Executor上运行。这个调度过程实际上还是比较粗粒度的，是面向TaskSetManager的。
 
 TaskScheduler是以树的方式来管理任务队列，树中的节点类型为Schdulable，叶子节点为TaskSetManager，非叶子节点为Pool，下图是它们之间的继承关系。
@@ -110,7 +110,7 @@ def getSortedTaskSetQueue: ArrayBuffer[TaskSetManager] = {
 ```
 使用FAIR调度策略时，上面代码中的taskSetSchedulingAlgorithm的类型为FairSchedulingAlgorithm，排序过程的比较是基于Fair-share来比较的，每个要排序的对象包含三个属性: runningTasks值（正在运行的Task数）、minShare值、weight值，比较时会综合考量runningTasks值，minShare以及weight值。如果A对象的runningTasks大于它的minShare，B对象的runningTasks小于它的minShare，那么B排在A前面；如果A、B对象的runningTasks都小于它们的minShare，那么就比较runningTasks与minShare的比值，谁小谁排前面；如果A、B对象的runningTasks都大于它们的minShare，那么就比较runningTasks与weight的比值，谁小谁排前面。整体上来说就是通过minShare和weight这两个参数控制比较过程，可以做到不让资源被某些长时间Task给一直占了。
 
-#### 本地化调度
+### 本地化调度
 从调度队列中拿到TaskSetManager后，那么接下来的工作就是TaskSetManager按照一定的规则一个个取出Task给TaskScheduler，TaskScheduler再交给SchedulerBackend去发到Executor上执行。前面也提到，TaskSetManager封装了一个Stage的所有Task，并负责管理调度这些Task。
 
 ![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20190523/schedule11.jpg?raw=true)
@@ -131,30 +131,30 @@ def resourceOffer(
 ![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20190523/schedule12.jpg?raw=true)
 首先看是否存在execId对应的PROCESS_LOCAL类别的任务，如果存在，取出来调度，否则根据当前时间，判断是否超过了PROCESS_LOCAL类别最大容忍的延迟，如果超过，则退化到下一个级别NODE_LOCAL，否则等待不调度。退化到下一个级别NODE_LOCAL后调度流程也类似，看是否存在host对应的NODE_LOCAL类别的任务，如果存在，取出来调度，否则根据当前时间，判断是否超过了NODE_LOCAL类别最大容忍的延迟，如果超过，则退化到下一个级别RACK_LOCAL，否则等待不调度，以此类推…..。当不满足Locatity类别会选择等待，直到下一轮调度重复上述流程，如果你比较激进，可以调大每个类别的最大容忍延迟时间，如果不满足Locatity时就会等待多个调度周期，直到满足或者超过延迟时间退化到下一个级别为止。
 
-#### 失败重试与黑名单机制 
+### 失败重试与黑名单机制 
 除了选择合适的Task调度运行外，还需要监控Task的执行状态，前面也提到，与外部打交道的是SchedulerBackend，Task被提交到Executor启动执行后，Executor会将执行状态上报给SchedulerBackend，SchedulerBackend则告诉TaskScheduler，TaskScheduler找到该Task对应的TaskSetManager，并通知到该TaskSetManager，这样TaskSetManager就知道Task的失败与成功状态，对于失败的Task，会记录它失败的次数，如果失败次数还没有超过最大重试次数，那么就把它放回待调度的Task池子中，否则整个Application失败。
 
 在记录Task失败次数过程中，会记录它上一次失败所在的Executor Id和Host，这样下次再调度这个Task时，会使用黑名单机制，避免它被调度到上一次失败的节点上，起到一定的容错作用。黑名单记录Task上一次失败所在的Executor Id和Host，以及其对应的“黑暗”时间，“黑暗”时间是指这段时间内不要再往这个节点上调度这个Task了。
 
-#### 推测式执行
+### 推测式执行
 TaskScheduler在启动SchedulerBackend后，还会启动一个后台线程专门负责推测任务的调度，推测任务是指对一个Task在不同的Executor上启动多个实例，如果有Task实例运行成功，则会干掉其他Executor上运行的实例。推测调度线程会每隔固定时间检查是否有Task需要推测执行，如果有，则会调用SchedulerBackend的reviveOffers去尝试拿资源运行推测任务。
 ![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20190523/schedule13.jpg?raw=true)
 检查是否有Task需要推测执行的逻辑最后会交到TaskSetManager，TaskSetManager采用基于统计的算法，检查Task是否需要推测执行，算法流程大致如下图所示。
 ![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20190523/schedule14.jpg?raw=true)
 TaskSetManager首先会统计成功的Task数，当成功的Task数超过75%(可通过参数spark.speculation.quantile控制)时，再统计所有成功的Tasks的运行时间，得到一个中位数，用这个中位数乘以1.5(可通过参数spark.speculation.multiplier控制)得到运行时间门限，如果在运行的Tasks的运行时间超过这个门限，则对它启用推测。算法逻辑较为简单，其实就是对那些拖慢整体进度的Tasks启用推测，以加速整个TaskSet即Stage的运行。
 
-#### 资源申请机制
+### 资源申请机制
 在前文已经提过，ApplicationMaster和SchedulerBackend起来后，SchedulerBackend通过ApplicationMaster申请资源，ApplicationMaster就是用来专门适配YARN申请Container资源的，当申请到Container，会在相应Container上启动Executor进程，其他事情就交给SchedulerBackend。Spark早期版本只支持静态资源申请，即一开始就指定用多少资源，在整个Spark应用程序运行过程中资源都不能改变，后来支持动态Executor申请，用户不需要指定确切的Executor数量，Spark会动态调整Executor的数量以达到资源利用的最大化。
 
-##### 静态资源申请
+#### 静态资源申请
 静态资源申请是用户在提交Spark应用程序时，就要提前估计应用程序需要使用的资源，包括Executor数(num_executor)、每个Executor上的core数(executor_cores)、每个Executor的内存(executor_memory)以及Driver的内存(driver_memory)。
 
 在估计资源使用时，应当首先了解这些资源是怎么用的。任务的并行度由分区数(Partitions)决定，一个Stage有多少分区，就会有多少Task。每个Task默认占用一个Core，一个Executor上的所有core共享Executor上的内存，一次并行运行的Task数等于num_executor*executor_cores，如果分区数超过该值，则需要运行多个轮次，一般来说建议运行3～5轮较为合适，否则考虑增加num_executor或executor_cores。由于一个Executor的所有tasks会共享内存executor_memory，所以建议executor_cores不宜过大。executor_memory的设置则需要综合每个分区的数据量以及是否有缓存等逻辑。下图描绘了一个应用程序内部资源利用情况。
 ![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20190523/schedule15.jpg?raw=true)
 
-##### 动态资源申请
+#### 动态资源申请
 动态资源申请目前只支持到Executor，即可以不用指定num_executor，通过参数spark.dynamicAllocation.enabled来控制。由于许多Spark应用程序一开始可能不需要那么多Executor或者其本身就不需要太多Executor，所以不必一次性申请那么多Executor，根据具体的任务数动态调整Executor的数量，尽可能做到资源的不浪费。由于动态Executor的调整会导致Executor动态的添加与删除，如果删除Executor，其上面的中间Shuffle结果可能会丢失，这就需要借助第三方的ShuffleService了，如果Spark是部署在Yarn上，则可以在Yarn上配置Spark的ShuffleService。
 
-#### 结语
+### 结语
 本文详细阐述了Spark的任务调度，着重讨论Spark on Yarn的部署调度，剖析了从应用程序提交到运行的全过程。Spark Schedule算是Spark中的一个大模块，它负责任务下发与监控等，基本上扮演了Spark大脑的角色。了解Spark Schedule有助于帮助我们清楚地认识Spark应用程序的运行轨迹，同时在我们实现其他系统时，也可以借鉴Spark的实现。
 

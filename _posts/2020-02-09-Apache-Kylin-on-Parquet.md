@@ -52,9 +52,8 @@ Build Engine V3为了使构建cube的任务更加合理以及健壮，引入了�
 
 1. 构建全局字典
 2. 添加表上的编码列
-3. 添加表上的可计算列
-4. 将模型上的fact表和lookup表根据join key构建成 Spark 的 DataFrame
-5. 持久化平表
+3. 将模型上的fact表和lookup表根据join key构建成 Spark 的 DataFrame
+4. 持久化平表
 
 从一条sql去分析构建是如何支持的
 ```
@@ -63,8 +62,7 @@ select
   s_nation,
   p_category,
   count (distinct lo_linenumber) dis_lo_linenumber,
-  sum(lo_revenue) - sum(lo_supplycost) as profit,
-  LO_EXTENDEDPRICE * LO_QUANTITY as T_PRICE_PER_ITEM
+  sum(lo_revenue) - sum(lo_supplycost) as profit
 from P_lineorder
 left join dates on lo_orderdate = d_datekey
 left join customer on lo_custkey = c_custkey
@@ -84,17 +82,15 @@ where
 group by
   d_year,
   s_nation,
-  p_category,
-  LO_EXTENDEDPRICE,
-  LO_QUANTITY
+  p_category
 order by
   d_year,
   s_nation,
-  p_category;;
+  p_category;
 ```
 
 分析sql构建SSB的模型：
-![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20200209/SSB_MODEL.png?raw=true)
+![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20200209/SSB_MODEL.png?raw=true){:width="600px"}
 
 平表sql如下：
 

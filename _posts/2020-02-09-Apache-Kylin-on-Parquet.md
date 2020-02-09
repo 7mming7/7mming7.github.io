@@ -12,7 +12,7 @@ Build Engine V3在使用集群资源进行任务构建之前，会提交一个sp
 
 **主要获取的信息：**
 1. 记录Layout上的spark的执行计划关联的文件
-   使用spark生成cube的平表的Dataset，然后从该平表Dataset的执行计划查找叶子节点上的**FileSourceScanExec**和**HiveTableScanExec**，将这两种Exec对应文件路径保存到构建任务的共享目录(/job_tmp/share)，例如下图中spark执行计划上的10个FileSourceScanExec的Path，会记录到segment下的resource_paths.json文件
+   使用spark生成cube的平表的DataFrame，然后从该平表DataFrame的执行计划查找叶子节点上的**FileSourceScanExec**和**HiveTableScanExec**，将这两种Exec对应文件路径保存到构建任务的共享目录(/job_tmp/share)，例如下图中spark执行计划上的10个FileSourceScanExec的Path，会记录到segment下的resource_paths.json文件
 ![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20200209/SSB_leafs.png?raw=true)
 ![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20200209/Resource Detect Paths.png?raw=true)
 
@@ -44,14 +44,14 @@ Build Engine V3为了使构建cube的任务更加合理以及健壮，引入了�
 *并发构建：*
     Build Engine V3并发构建snapshot，通过参数 **kylin.snapshot.parallel-build-enabled**(默认开启) 控制是否开启并发构建，以及参数 **kylin.snapshot.parallel-build-timeout-seconds**(默认1小时) 进行构建超时控制
 
-### 创建平表Dataset
-将Cube上定义的fact表和lookup表构建成一个spark的Dataset，作为后续将指标和维度聚合到parquet文件上的基础。
+### 创建平表DataFrame
+将Cube上定义的fact表和lookup表构建成一个spark的DataFrame，作为后续将指标和维度聚合到parquet文件上的基础。
 主要有以下步骤：
 
 1. 构建全局字典
 2. 添加表上的编码列
 3. 添加表上的可计算列
-4. 将模型上的fact表和lookup表根据join key构建成 Spark 的 Dataset
+4. 将模型上的fact表和lookup表根据join key构建成 Spark 的 DataFrame
 5. 持久化平表
 
 从一条sql去分析构建是如何支持的

@@ -13,8 +13,8 @@ Build Engine V3在使用集群资源进行任务构建之前，会提交一个sp
 **主要获取的信息：**
 1. 记录Layout上的spark的执行计划关联的文件
    使用spark生成cube的平表的Dataset，然后从该平表Dataset的执行计划查找叶子节点上的**FileSourceScanExec**和**HiveTableScanExec**，将这两种Exec对应文件路径保存到构建任务的共享目录(/job_tmp/share)，例如下图中spark执行计划上的10个FileSourceScanExec的Path，会记录到segment下的resource_paths.json文件
-![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20200209/Resource Detect2.png?raw=true)
 ![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20200209/SSB_leafs.png?raw=true)
+![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20200209/Resource Detect Paths.png?raw=true)
 
 2. 记录Layout的spark Rdd的分区数量，为了后续自动调参时设置**spark.executors.instances**
    把 spark 执行计划 toRDD 转成底层的 RDD 依赖链， 使用宽度遍历获取所有叶子RDD， 以及叶子RDD 的分区数目当做task 数目，并将task数目写入文件cubing_detect_items.json，传递到构建的job，spark 自动调参的时候获取 所有 segment 所有 layout 里面最大的 task 数目当做依据，配置里面加入一个因子kylin.engine.task-core-factor，用来设置 task 数目和 core 的比例，最后算出 需要启动的 instance 数目，和 content size 算出来的取最大值

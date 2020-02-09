@@ -9,7 +9,7 @@
 对于一个构建任务如何合理的分配资源，既不能太小导致cube构建失败，又不能太大导致资源的浪费。为了更加合理的使用集群资源，以及增强构建cube的稳定性。下面以SSB的模型作为示例说明：
 ![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20200209/SSB Model.png?raw=true)
 Build Engine V3在使用集群资源进行任务构建之前，会提交一个spark local的任务，估算下本次构建可能需要的计算量以及需要的资源，该步骤不会占用集群资源。资源探测步骤在web界面的表现形式如下图所示:
-![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20200209/Resource Detect.png?raw=true){:width="600px"}
+![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20200209/Resource Detect.png?raw=true)
 资源探测步骤中，会估算Spark plan中底层File scan对应的文件的大小。
 
 **主要获取的信息：**
@@ -23,7 +23,7 @@ Build Engine V3在使用集群资源进行任务构建之前，会提交一个sp
 
 ## 构建索引|Load Data To Index
 构建索引步骤会利用集群资源，构建相应的cube存成parquet文件
-![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20200209/Load data in index1.png?raw=true){:width="600px"}
+![](https://github.com/shuiqing301/shuiqing301.github.io/blob/master/img/posts/20200209/Load data in index1.png?raw=true)
 
 ### 自动调整构建参数
 Build Engine V3为了使构建cube的任务更加合理以及健壮，引入了构建任务自动调整参数机制，该机制的实现主要依赖cube构建的第一步资源探测的信息。

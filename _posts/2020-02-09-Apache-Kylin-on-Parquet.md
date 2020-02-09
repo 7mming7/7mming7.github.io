@@ -1,5 +1,5 @@
 # Apache Kylin On Parquet 构建原理
-[TOC] 
+{:toc}
 ## 前言
 本文主要介绍Kylin on parquet全新的构建引擎如何工作的。构建cube从N多步骤缩减为两步，主要分为构建资源探测以及构建索引两个步骤。本文中Kylin on parquet构建引擎使用Build Engine V3指代。
 
